@@ -25,6 +25,7 @@ async fn main() -> std::io::Result<()> {
 
   let frontend_server_url = env::var("FRONTEND_SERVER_URL")
     .unwrap_or_else(|_| "http://localhost:3000".to_string());
+  println!("{}", frontend_server_url);
   let backend_server_url = env::var("BACKEND_SERVER_URL")
     .unwrap_or_else(|_| "127.0.0.1:8080".to_string());
 

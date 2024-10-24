@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "./styles.scss";
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
 
 function Register() {
   const [username, setUsername] = useState("");
@@ -47,7 +46,7 @@ function Register() {
 
     setIsLoading(true);
     try {
-      const response = await fetch(`${apiBaseUrl}/api/register`, {
+      const response = await fetch(`/backend/api/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),

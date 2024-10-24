@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "./styles.scss";
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
 
 function Login() {
   const [username, setUsername] = useState("");
@@ -16,7 +15,7 @@ function Login() {
     setIsLoading(true);
 
     try {
-      const response = await fetch(`${apiBaseUrl}/api/login`, {
+      const response = await fetch(`/backend/api/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

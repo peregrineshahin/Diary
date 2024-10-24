@@ -1,5 +1,3 @@
-use std::env;
-
 use crate::{
   auth::{validate_username, PasswordHandler},
   errors::AppError,
@@ -8,6 +6,7 @@ use argon2::Argon2;
 use chrono::{Local, NaiveDate};
 use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
+use std::env;
 
 pub enum DateFilter {
   None,
@@ -31,6 +30,7 @@ pub struct User {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct NewEntry {
   pub content: String,
+  pub recordings_map: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -38,6 +38,7 @@ pub struct Entry {
   pub id: i32,
   pub user_id: i32,
   pub content: String,
+  pub recordings_map: String,
   pub created_at: String,
 }
 
@@ -61,7 +62,8 @@ fn map_entries(row: &rusqlite::Row) -> Result<Entry, rusqlite::Error> {
     id: row.get(0)?,
     user_id: row.get(1)?,
     content: row.get(2)?,
-    created_at: row.get(3)?,
+    recordings_map: row.get(3)?,
+    created_at: row.get(4)?,
   })
 }
 
@@ -81,6 +83,7 @@ pub fn init_db() -> Result<()> {
             id INTEGER PRIMARY KEY,
             user_id INTEGER NOT NULL,
             content TEXT NOT NULL,
+            recordings_map TEXT DEFAULT '[]',  -- Column for JSON recordings_map
             created_at TEXT NOT NULL,
             FOREIGN KEY(user_id) REFERENCES users(id)
         )",
@@ -115,9 +118,9 @@ pub fn register_user(
     <Argon2 as PasswordHandler>::hash_password(&new_user.password)?;
 
   let result = conn.execute(
-      "INSERT INTO users (username, password_hash, created_at) VALUES (?1, ?2, ?3)",
-      &[&new_user.username, &password_hash, &Local::now().to_string()],
-  );
+        "INSERT INTO users (username, password_hash, created_at) VALUES (?1, ?2, ?3)",
+        &[&new_user.username, &password_hash, &Local::now().to_string()],
+    );
 
   match result {
     Ok(_) => Ok(()),
@@ -168,10 +171,10 @@ pub fn add_user_entry(
   new_entry: &NewEntry,
 ) -> Result<()> {
   execute_query(
-    conn,
-    "INSERT INTO entries (user_id, content, created_at) VALUES (?1, ?2, ?3)",
-    &[&user_id, &new_entry.content, &Local::now().to_string()],
-  )?;
+        conn,
+        "INSERT INTO entries (user_id, content, recordings_map, created_at) VALUES (?1, ?2, ?3, ?4)",
+        &[&user_id, &new_entry.content, &new_entry.recordings_map, &Local::now().to_string()],
+    )?;
   Ok(())
 }
 
@@ -182,10 +185,10 @@ pub fn edit_user_entry(
   new_entry: &NewEntry,
 ) -> Result<()> {
   execute_query(
-    conn,
-    "UPDATE entries SET content = ?1 WHERE id = ?2 AND user_id = ?3",
-    &[&new_entry.content, &entry_id, &user_id],
-  )?;
+        conn,
+        "UPDATE entries SET content = ?1, recordings_map = ?2 WHERE id = ?3 AND user_id = ?4",
+        &[&new_entry.content, &new_entry.recordings_map, &entry_id, &user_id],
+    )?;
   Ok(())
 }
 
@@ -224,8 +227,8 @@ pub fn get_user_entries(
   date_filter: DateFilter,
 ) -> Result<Vec<Entry>, AppError> {
   let mut query =
-    "SELECT id, user_id, content, created_at FROM entries WHERE user_id = ?1"
-      .to_string();
+        "SELECT id, user_id, content, recordings_map, created_at FROM entries WHERE user_id = ?1"
+            .to_string();
   let mut params: Vec<String> = vec![user_id.to_string()];
 
   let (date_query_part, date_params) = build_date_filter(date_filter);

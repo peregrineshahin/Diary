@@ -128,7 +128,9 @@ pub async fn add_entry(
   db: web::Data<Mutex<rusqlite::Connection>>,
 ) -> Result<HttpResponse, AppError> {
   authorize_user(&session, *user_id)?;
+
   db::add_user_entry(&db.lock().unwrap(), *user_id, &new_entry)?;
+
   Ok(HttpResponse::Ok().json("Entry added successfully"))
 }
 
@@ -140,6 +142,7 @@ pub async fn edit_entry(
 ) -> Result<HttpResponse, AppError> {
   let (user_id, entry_id) = path.into_inner();
   authorize_user(&session, user_id)?;
+
   db::edit_user_entry(&db.lock().unwrap(), user_id, entry_id, &new_entry)?;
   Ok(HttpResponse::Ok().json("Entry updated successfully"))
 }
