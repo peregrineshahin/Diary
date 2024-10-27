@@ -13,16 +13,18 @@ import "react-toastify/dist/ReactToastify.css";
 
 function App() {
   return (
-    <div id="app-container">
-      <ToastContainer closeButton={false} hideProgressBar={true} />
-      <Router>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/" element={<Diary />} />
-          <Route path="*" element={<Navigate to="/login" />} />
-        </Routes>
-      </Router>
+    <div className="App">
+      <div id="app-container">
+        <ToastContainer closeButton={false} hideProgressBar={true} />
+        <Router>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/" element={<Diary />} />
+            <Route path="*" element={<Navigate to="/login" />} />
+          </Routes>
+        </Router>
+      </div>
     </div>
   );
 }

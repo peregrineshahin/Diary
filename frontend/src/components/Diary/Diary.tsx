@@ -15,9 +15,8 @@ import { toast } from "react-toastify";
 import { DatePicker } from "antd";
 import dayjs from "dayjs";
 import Header from "../Header/Header";
+import Drawing, { RecordedStroke } from "../Drawing/Drawing";
 import "./styles.scss";
-
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
 
 const Diary = () => {
   const [loading, setLoading] = useState(true);
@@ -33,12 +32,17 @@ const Diary = () => {
   const [editEntryId, setEditEntryId] = useState<number | null>(null);
   const [editEntryContent, setEditEntryContent] = useState<string>("");
 
+  const [activeTab, setActiveTab] = useState<"typed" | "handwritten">("typed");
+  const [recordingsMap, setRecordingsMap] = useState<
+    Record<number, RecordedStroke[]>
+  >({});
+
   const navigate = useNavigate();
 
   useEffect(() => {
     const fetchSession = async () => {
       try {
-        const response = await fetch(`${apiBaseUrl}/api/session`, {
+        const response = await fetch(`/backend/api/session`, {
           credentials: "include",
         });
 
@@ -70,9 +74,9 @@ const Diary = () => {
   ) => {
     try {
       const response = await fetch(
-        `${apiBaseUrl}/api/entries/${userId}?date_from=${
-          dateFrom || ""
-        }&date_to=${dateTo || ""}`,
+        `/backend/api/entries/${userId}?date_from=${dateFrom || ""}&date_to=${
+          dateTo || ""
+        }`,
         {
           credentials: "include",
         },
@@ -82,7 +86,17 @@ const Diary = () => {
         setEntries([]);
       } else if (response.ok) {
         const entriesData = await response.json();
+
+        // Extract recordingsMap for each entry
+        const newRecordingsMap: Record<number, RecordedStroke[]> = {};
+        entriesData.forEach((entry: any) => {
+          if (entry.recordings) {
+            newRecordingsMap[entry.id] = JSON.parse(entry.recordings);
+          }
+        });
+
         setEntries(entriesData);
+        setRecordingsMap(newRecordingsMap);
       } else {
         throw new Error("Failed to fetch your diary. Please try again.");
       }
@@ -92,17 +106,21 @@ const Diary = () => {
   };
 
   const handleAddEntry = async (e: React.FormEvent) => {
+    debugger;
+
     e.preventDefault();
     try {
-      const response = await fetch(
-        `${apiBaseUrl}/api/entries/${session.user_id}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ content: newEntry }),
-        },
-      );
+      const entryData =
+        activeTab === "handwritten"
+          ? { content: newEntry, recordings_map: JSON.stringify(recordingsMap) }
+          : { content: newEntry, recordings_map: JSON.stringify([]) };
+
+      const response = await fetch(`/backend/api/entries/${session.user_id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(entryData),
+      });
 
       if (!response.ok) {
         throw new Error("Failed to save your thoughts. Please try again.");
@@ -111,6 +129,7 @@ const Diary = () => {
       const message = await response.json();
       toast.success(message);
       setNewEntry("");
+      setRecordingsMap({});
       fetchEntries(session.user_id, dateFrom, dateTo);
     } catch (error) {
       handleError(error);
@@ -120,7 +139,7 @@ const Diary = () => {
   const handleEditEntry = async (entryId: number, content: string) => {
     try {
       const response = await fetch(
-        `${apiBaseUrl}/api/entries/${session.user_id}/${entryId}`,
+        `/backend/api/entries/${session.user_id}/${entryId}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -145,7 +164,7 @@ const Diary = () => {
   const handleDeleteEntry = async (entryId: number) => {
     try {
       const response = await fetch(
-        `${apiBaseUrl}/api/entries/${session.user_id}/${entryId}`,
+        `/backend/api/entries/${session.user_id}/${entryId}`,
         {
           method: "DELETE",
           credentials: "include",
@@ -167,7 +186,7 @@ const Diary = () => {
     if (selectedEntries.length > 0) {
       try {
         const response = await fetch(
-          `${apiBaseUrl}/api/entries/${session.user_id}/delete_multiple`,
+          `/backend/api/entries/${session.user_id}/delete_multiple`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -213,7 +232,7 @@ const Diary = () => {
 
   const handleLogout = async () => {
     try {
-      const response = await fetch(`${apiBaseUrl}/api/logout`, {
+      const response = await fetch(`/backend/api/logout`, {
         method: "POST",
         credentials: "include",
       });
@@ -253,13 +272,47 @@ const Diary = () => {
         <div id="entry-section">
           <br />
           <h2>Express your thoughts...</h2>
+
+          <br></br>
+          <div className="tab-switcher">
+            <button
+              className={activeTab === "typed" ? "active" : ""}
+              onClick={() => setActiveTab("typed")}
+            >
+              Typed
+            </button>
+            <button
+              className={activeTab === "handwritten" ? "active" : ""}
+              onClick={() => setActiveTab("handwritten")}
+            >
+              Handwritten
+            </button>
+          </div>
+
           <form id="entry-form" onSubmit={handleAddEntry}>
-            <textarea
-              id="content"
-              required
-              value={newEntry}
-              onChange={(e) => setNewEntry(e.target.value)}
-            />
+            {activeTab === "typed" && (
+              <textarea
+                id="content"
+                required
+                value={newEntry}
+                onChange={(e) => setNewEntry(e.target.value)}
+              />
+            )}
+
+            {activeTab === "handwritten" && (
+              <div className="handwriting-section">
+                <h3>Handwritten Thoughts</h3>
+                <br></br>
+
+                <Drawing
+                  recordingsMap={recordingsMap}
+                  setRecordingsMap={setRecordingsMap}
+                  tooling={true}
+                />
+              </div>
+            )}
+
+            <br></br>
             <button type="submit">Add</button>
           </form>
 
@@ -284,7 +337,6 @@ const Diary = () => {
             </div>
           </div>
 
-          {/* Bulk Actions Toolbar */}
           {selectedEntries.length > 0 && (
             <div className="bulk-actions-toolbar">
               <span>{selectedEntries.length} selected</span>
@@ -312,16 +364,29 @@ const Diary = () => {
                     <time title={entry.created_at}>
                       {formatDate(entry.created_at)}
                     </time>
-                    <textarea
-                      readOnly={editEntryId !== entry.id}
-                      value={
-                        editEntryId === entry.id
-                          ? editEntryContent
-                          : entry.content
-                      }
-                      onChange={(e) => setEditEntryContent(e.target.value)}
-                    />
+
+                    {entry.recordings_map && entry.recordings_map.length > 0 ? (
+                      <div className="handwriting-section">
+                        <h3>Handwritten Entry</h3>
+                        <Drawing
+                          recordingsMap={JSON.parse(entry.recordings_map)}
+                          setRecordingsMap={() => {}}
+                          tooling={false}
+                        />
+                      </div>
+                    ) : (
+                      <textarea
+                        readOnly={editEntryId !== entry.id}
+                        value={
+                          editEntryId === entry.id
+                            ? editEntryContent
+                            : entry.content
+                        }
+                        onChange={(e) => setEditEntryContent(e.target.value)}
+                      />
+                    )}
                   </div>
+
                   <div className="entry-actions">
                     {editEntryId === entry.id ? (
                       <FontAwesomeIcon
